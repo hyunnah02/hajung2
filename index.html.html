@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Java 로직 기반 천지인 키보드 연습</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            font-family: 'Malgun Gothic', 'Segoe UI', sans-serif;
+            background-color: #f0f2f5;
+        }
+        .practice-container {
+            width: 380px;
+            padding: 25px;
+            border-radius: 15px;
+            background-color: #ffffff;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        .stage-selection {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stage-btn {
+            padding: 10px 15px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            background-color: #f8f9fa;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+        }
+        .stage-btn.active {
+            background-color: #007bff;
+            color: white;
+            border-color: #007bff;
+        }
+        .display-area {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            min-height: 90px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+        #target-word, #user-input-display {
+            font-size: 2em;
+            text-align: center;
+            height: 45px;
+            line-height: 45px;
+        }
+        #target-word { color: #6c757d; }
+        #user-input-display { color: #212529; font-weight: bold; }
+        #feedback-message {
+            position: absolute;
+            bottom: 5px;
+            right: 10px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+        .feedback-correct { color: #28a745; }
+        .feedback-incorrect { color: #dc3545; }
+        .keyboard {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .key {
+            height: 60px;
+            font-size: 1.5em;
+            border-radius: 8px;
+            border: 1px solid #d1d3d4;
+            background-color: #ffffff;
+            cursor: pointer;
+            user-select: none;
+            transition: background-color 0.2s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .key:active { background-color: #b0b4b8; }
+        #key-enter { grid-row: span 2; height: auto; }
+        #key-space { grid-column: span 2; }
+        .controls {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        #reset-btn {
+            padding: 10px 30px;
+            font-size: 1em;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            border-radius: 8px;
+            background-color: transparent;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="practice-container">
+        <h1>천지인 키보드 연습</h1>
+        <div class="stage-selection">
+            <button class="stage-btn active" id="stage1-btn">1단계 모음</button>
+            <button class="stage-btn" id="stage2-btn">2단계 단어</button>
+        </div>
+        <div class="display-area">
+            <div id="target-word"></div>
+            <div id="user-input-display"></div>
+            <div id="feedback-message"></div>
+        </div>
+        <div class="keyboard">
+            <button class="key" data-key-index="1">ㅣ</button>
+            <button class="key" data-key-index="2">·</button>
+            <button class="key" data-key-index="3">ㅡ</button>
+            <button class="key" data-key-index="11">⌫</button>
+            <button class="key" data-key-index="4">ㄱㅋ</button>
+            <button class="key" data-key-index="5">ㄴㄹ</button>
+            <button class="key" data-key-index="6">ㄷㅌ</button>
+            <button class="key" id="key-enter" data-key-index="12">↵</button>
+            <button class="key" data-key-index="7">ㅂㅍ</button>
+            <button class="key" data-key-index="8">ㅅㅎ</button>
+            <button class="key" data-key-index="9">ㅈㅊ</button>
+            <button class="key" data-key-index="13">,.?!</button>
+            <button class="key" data-key-index="14">!#1</button>
+            <button class="key" data-key-index="0">ㅇㅁ</button>
+            <button class="key" id="key-space" data-key-index="10">␣</button>
+        </div>
+        <div class="controls">
+            <button id="reset-btn">초기화</button>
+        </div>
+    </div>
+
+<script>
+const stages = {
+    1: ['ㅏ', 'ㅓ', 'ㅕ', 'ㅢ', 'ㅟ'],
+    2: ['그림자', '호루라기', '태평', '카메라', '따뜻하다', '대한민국']
+};
+let currentStage = 1;
+let wordIndex = 0;
+let composedText = ''; // 최종 완성된 텍스트
+
+const targetWordDiv = document.getElementById('target-word');
+const userInputDisplayDiv = document.getElementById('user-input-display');
+const feedbackMessageDiv = document.getElementById('feedback-message');
+
+const CHO_LIST = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const JUNG_LIST = ['ㅏ','ㅐ','ㅑ','ㅒ','ㅓ','ㅔ','ㅕ','ㅖ','ㅗ','ㅘ','ㅙ','ㅚ','ㅛ','ㅜ','ㅝ','ㅞ','ㅟ','ㅠ','ㅡ','ㅢ','ㅣ'];
+const JONG_LIST = ['','ㄱ','ㄲ','ㄳ','ㄴ','ㄵ','ㄶ','ㄷ','ㄹ','ㄺ','ㄻ','ㄼ','ㄽ','ㄾ','ㄿ','ㅀ','ㅁ','ㅂ','ㅄ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+
+const hangul = {
+    chosung: "", jungsung: "", jongsung: "", jongsung2: "", step: 0,
+    init: function() {
+        this.chosung = ""; this.jungsung = ""; this.jongsung = ""; this.jongsung2 = ""; this.step = 0;
+    }
+};
+
+function getUnicode() {
+    if (hangul.chosung === "" && hangul.jungsung === "") return "";
+    if (hangul.jungsung === "" || hangul.jungsung === "·" || hangul.jungsung === "‥") {
+        return hangul.chosung;
+    }
+
+    const choIndex = CHO_LIST.indexOf(hangul.chosung);
+    const jungIndex = JUNG_LIST.indexOf(hangul.jungsung);
+    
+    let jong = hangul.jongsung;
+    if (hangul.jongsung2) {
+        if (hangul.jongsung === "ㄱ" && hangul.jongsung2 === "ㅅ") jong = "ㄳ";
+        else if (hangul.jongsung === "ㄴ" && hangul.jongsung2 === "ㅈ") jong = "ㄵ";
+        else if (hangul.jongsung === "ㄴ" && hangul.jongsung2 === "ㅎ") jong = "ㄶ";
+        else if (hangul.jongsung === "ㄹ" && hangul.jongsung2 === "ㄱ") jong = "ㄺ";
+        else if (hangul.jongsung === "ㄹ" && hangul.jongsung2 === "ㅁ") jong = "ㄻ";
+        else if (hangul.jongsung === "ㄹ" && hangul.jongsung2 === "ㅂ") jong = "ㄼ";
+        else if (hangul.jongsung === "ㄹ" && hangul.jongsung2 === "ㅅ") jong = "ㄽ";
+        else if (hangul.jongsung === "ㄹ" && hangul.jongsung2 === "ㅌ") jong = "ㄾ";
+        else if (hangul.jongsung === "ㄹ" && hangul.jongsung2 === "ㅍ") jong = "ㄿ";
+        else if (hangul.jongsung === "ㄹ" && hangul.jongsung2 === "ㅎ") jong = "ㅀ";
+        else if (hangul.jongsung === "ㅂ" && hangul.jongsung2 === "ㅅ") jong = "ㅄ";
+    }
+    const jongIndex = JONG_LIST.indexOf(jong);
+
+    if (choIndex === -1 || jungIndex === -1) return hangul.chosung + hangul.jungsung;
+
+    return String.fromCharCode(44032 + choIndex * 588 + jungIndex * 28 + jongIndex);
+}
+
+function processHangul(input) {
+    let beforeData = "", nowData = "", overData = "";
+
+    if (input >= 1 && input <= 3) { // Vowels
+        if (hangul.step === 2 || hangul.step === 3) { // 종성 분리
+            let s = hangul.step === 2 ? hangul.jongsung : hangul.jongsung2;
+            let combinedJong = "";
+            if(hangul.step === 3){
+                const deco = Object.keys(JONG_COMBINE_MAP).find(k => JONG_COMBINE_MAP[k] === (hangul.jongsung + s));
+                if(deco){
+                    hangul.jongsung = deco[0];
+                    s = deco[1];
+                }
+            } else {
+                 hangul.jongsung = "";
+            }
+             if(hangul.step === 3) hangul.jongsung2 = "";
+            
+            composedText += getUnicode();
+            hangul.init();
+            hangul.chosung = s;
+        }
+        
+        beforeData = hangul.jungsung;
+        hangul.step = 1;
+        
+        if (input === 1) { // ㅣ
+            if (beforeData === "") nowData = "ㅣ";
+            else if (beforeData === "·") nowData = "ㅓ"; else if (beforeData === "‥") nowData = "ㅕ";
+            else if (beforeData === "ㅏ") nowData = "ㅐ"; else if (beforeData === "ㅑ") nowData = "ㅒ";
+            else if (beforeData === "ㅓ") nowData = "ㅔ"; else if (beforeData === "ㅕ") nowData = "ㅖ";
+            else if (beforeData === "ㅗ") nowData = "ㅚ"; else if (beforeData === "ㅜ") nowData = "ㅟ";
+            else if (beforeData === "ㅠ") nowData = "ㅝ"; else if (beforeData === "ㅘ") nowData = "ㅙ";
+            else if (beforeData === "ㅝ") nowData = "ㅞ"; else if (beforeData === "ㅡ") nowData = "ㅢ";
+            else { hangul.init(); nowData = "ㅣ"; hangul.step = 1; }
+        } else if (input === 2) { // ·
+            if (beforeData === "") nowData = "·";
+            else if (beforeData === "·") nowData = "‥"; else if (beforeData === "‥") nowData = "·";
+            else if (beforeData === "ㅣ") nowData = "ㅏ"; else if (beforeData === "ㅏ") nowData = "ㅑ";
+            else if (beforeData === "ㅡ") nowData = "ㅜ"; else if (beforeData === "ㅜ") nowData = "ㅠ";
+            else if (beforeData === "ㅚ") nowData = "ㅘ";
+            else { hangul.init(); nowData = "·"; hangul.step = 1; }
+        } else if (input === 3) { // ㅡ
+            if (beforeData === "") nowData = "ㅡ";
+            else if (beforeData === "·") nowData = "ㅗ"; else if (beforeData === "‥") nowData = "ㅛ";
+            else { hangul.init(); nowData = "ㅡ"; hangul.step = 1; }
+        }
+        hangul.jungsung = nowData;
+    } else { // Consonants
+        if (hangul.step === 1) {
+            if (hangul.jungsung === "·" || hangul.jungsung === "‥") hangul.init();
+            else hangul.step = 2;
+        }
+
+        if (hangul.step === 0) beforeData = hangul.chosung;
+        else if (hangul.step === 2) beforeData = hangul.jongsung;
+        else if (hangul.step === 3) beforeData = hangul.jongsung2;
+
+        const keyMap = {
+            4: { '':'ㄱ', 'ㄱ':'ㅋ', 'ㅋ':'ㄲ', 'ㄲ':'ㄱ' }, 5: { '':'ㄴ', 'ㄴ':'ㄹ', 'ㄹ':'ㄴ' },
+            6: { '':'ㄷ', 'ㄷ':'ㅌ', 'ㅌ':'ㄸ', 'ㄸ':'ㄷ' }, 7: { '':'ㅂ', 'ㅂ':'ㅍ', 'ㅍ':'ㅃ', 'ㅃ':'ㅂ' },
+            8: { '':'ㅅ', 'ㅅ':'ㅎ', 'ㅎ':'ㅆ', 'ㅆ':'ㅅ' }, 9: { '':'ㅈ', 'ㅈ':'ㅊ', 'ㅊ':'ㅉ', 'ㅉ':'ㅈ' },
+            0: { '':'ㅇ', 'ㅇ':'ㅁ', 'ㅁ':'ㅇ' }
+        };
+        const jongMap = {
+            4: { 'ㄹ': 'ㄱ'}, 6: {'ㄹ': 'ㄷ'}, 7: {'ㄹ': 'ㅂ'},
+            8: {'ㄱ':'ㅅ', 'ㄴ':'ㅅ', 'ㄹ':'ㅅ', 'ㅂ':'ㅅ'}, 9: {'ㄴ':'ㅈ'}, 0: {'ㄹ':'ㅇ'}
+        };
+        
+        if (keyMap[input] && keyMap[input][beforeData] !== undefined) {
+            nowData = keyMap[input][beforeData];
+        } else if (hangul.step === 2 && jongMap[input] && jongMap[input][beforeData]) {
+            hangul.step = 3;
+            nowData = jongMap[input][beforeData];
+        } else {
+            composedText += getUnicode();
+            hangul.init();
+            overData = keyMap[input][''];
+        }
+
+        if (nowData) {
+            if (hangul.step === 0) hangul.chosung = nowData;
+            else if (hangul.step === 2) hangul.jongsung = nowData;
+            else if (hangul.step === 3) hangul.jongsung2 = nowData;
+        }
+        if (overData) {
+            hangul.chosung = overData;
+        }
+    }
+    updateDisplay();
+}
+
+function handleBackspace() {
+    if (hangul.step === 3) { hangul.jongsung2 = ""; hangul.step = 2; }
+    else if (hangul.step === 2) { hangul.jongsung = ""; hangul.step = 1; }
+    else if (hangul.step === 1) { hangul.jungsung = ""; hangul.step = 0; }
+    else if (hangul.step === 0 && hangul.chosung) { hangul.chosung = ""; }
+    else if (composedText) {
+        composedText = composedText.slice(0, -1);
+    }
+    updateDisplay();
+}
+
+function processInput(keyIndex) {
+    switch (keyIndex) {
+        case 10: // Space
+            composedText += getUnicode() + " ";
+            hangul.init();
+            updateDisplay();
+            break;
+        case 11: // Backspace
+            handleBackspace();
+            break;
+        case 12: // Enter
+            composedText += getUnicode();
+            hangul.init();
+            checkAnswer();
+            break;
+        case 13: case 14: // Special chars
+             composedText += getUnicode();
+             hangul.init();
+             const chars = { 13: ',.?!', 14: '!#1' };
+             composedText += chars[keyIndex][0]; // Simple implementation for now
+             updateDisplay();
+             break;
+        default: // Hangul keys
+            processHangul(keyIndex);
+            break;
+    }
+}
+
+function updateDisplay() {
+    userInputDisplayDiv.textContent = composedText + getUnicode();
+    feedbackMessageDiv.textContent = '';
+}
+
+function checkAnswer() {
+    if (userInputDisplayDiv.textContent === stages[currentStage][wordIndex]) {
+        feedbackMessageDiv.textContent = "정답!";
+        feedbackMessageDiv.className = 'feedback-correct';
+        setTimeout(nextWord, 800);
+    } else {
+        feedbackMessageDiv.textContent = "다시 시도해보세요!";
+        feedbackMessageDiv.className = 'feedback-incorrect';
+    }
+}
+
+function startStage(stageNum) {
+    currentStage = stageNum;
+    wordIndex = 0;
+    document.getElementById('stage1-btn').classList.toggle('active', stageNum === 1);
+    document.getElementById('stage2-btn').classList.toggle('active', stageNum === 2);
+    loadWord();
+}
+
+function loadWord() {
+    targetWordDiv.textContent = stages[currentStage][wordIndex];
+    composedText = '';
+    hangul.init();
+    updateDisplay();
+}
+
+function nextWord() {
+    wordIndex = (wordIndex + 1) % stages[currentStage].length;
+    loadWord();
+}
+
+
+// Event Listeners
+document.querySelector('.keyboard').addEventListener('click', e => {
+    const key = e.target.closest('.key');
+    if (key && key.dataset.keyIndex) {
+        processInput(parseInt(key.dataset.keyIndex, 10));
+    }
+});
+document.getElementById('stage1-btn').addEventListener('click', () => startStage(1));
+document.getElementById('stage2-btn').addEventListener('click', () => startStage(2));
+document.getElementById('reset-btn').addEventListener('click', () => startStage(currentStage));
+
+startStage(1);
+</script>
+</body>
+</html>
